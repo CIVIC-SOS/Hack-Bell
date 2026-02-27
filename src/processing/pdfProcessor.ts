@@ -1,7 +1,7 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import type { DetectedEntity } from '../types';
 
-const SUB_PIXEL_PADDING = 3;
+const SUB_PIXEL_PADDING = 5;
 
 /**
  * Renders a PDF page to a canvas for preview and OCR.
@@ -85,5 +85,5 @@ export async function getPDFPageCount(pdfBytes: ArrayBuffer): Promise<number> {
  * Converts redacted PDF bytes to a File object.
  */
 export function pdfBytesToFile(bytes: Uint8Array, fileName: string): File {
-    return new File([bytes], fileName, { type: 'application/pdf' });
+    return new File([bytes as BlobPart], fileName, { type: 'application/pdf' });
 }

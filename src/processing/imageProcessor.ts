@@ -1,6 +1,6 @@
 import type { DetectedEntity } from '../types';
 
-const SUB_PIXEL_PADDING = 3; // Extra padding to cover letter descenders/ascenders
+const SUB_PIXEL_PADDING = 5; // Extra padding to cover letter descenders/ascenders and prevent ghosting
 
 /**
  * Renders an image onto a canvas, applies redaction, and returns the result.

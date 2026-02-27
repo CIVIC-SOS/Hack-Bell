@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { SecureUploader } from './components/SecureUploader';
+import { DocTypeSelector } from './components/DocTypeSelector';
 import type { EvidenceLog } from './types';
 import './index.css';
 
-const REQUIRED_FIELDS = ['NAME', 'ADDRESS'];
-
 const App: React.FC = () => {
+  const [selectedDocType, setSelectedDocType] = useState<string | null>(null);
+  const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [result, setResult] = useState<{
     file: File | null;
     evidence: EvidenceLog | null;
@@ -21,24 +22,21 @@ const App: React.FC = () => {
       <header className="demo-header">
         <h1 className="demo-title">SecureUploader</h1>
         <p className="demo-description">
-          Client-side PII detection and redaction. Upload a document to automatically
-          identify and mask sensitive information before it leaves your browser.
+          Client-side PII detection and redaction. Select a document type, choose which fields to keep visible,
+          then upload your document to automatically redact everything else.
         </p>
-        <div className="demo-required-fields">
-          {REQUIRED_FIELDS.map(field => (
-            <span key={field} className="demo-field-tag">
-              {field}
-            </span>
-          ))}
-          <span className="demo-field-tag" style={{ background: '#f0f1f4', color: '#5c5f6a', borderColor: '#e2e4e9' }}>
-            Required Fields (kept visible)
-          </span>
-        </div>
       </header>
+
+      <DocTypeSelector
+        selectedDocType={selectedDocType}
+        selectedFields={selectedFields}
+        onDocTypeChange={setSelectedDocType}
+        onFieldsChange={setSelectedFields}
+      />
 
       <div className="demo-uploader">
         <SecureUploader
-          requiredFields={REQUIRED_FIELDS}
+          requiredFields={selectedFields}
           confidenceThreshold={0.5}
           onUpload={handleUpload}
           maxFileSizeMB={25}

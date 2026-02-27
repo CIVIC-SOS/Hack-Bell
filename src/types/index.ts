@@ -10,6 +10,10 @@ export type PIIType =
     | 'MEDICAL'
     | 'EMAIL'
     | 'DOB'
+    | 'ACCOUNT_NUMBER'
+    | 'IFSC'
+    | 'INVOICE_NO'
+    | 'GST'
     | 'SENSITIVE';
 
 export interface BoundingBox {
@@ -20,6 +24,26 @@ export interface BoundingBox {
     pageIndex: number;
 }
 
+export interface SpatialMapEntry {
+    text: string;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    pageIndex: number;
+    redact: boolean;
+}
+
+export interface RedactionZone {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    pageIndex: number;
+    matchedPhrase: string;
+    matchedWords: string[];
+}
+
 export interface DetectedEntity {
     id: string;
     type: PIIType;
@@ -27,7 +51,7 @@ export interface DetectedEntity {
     confidence: number;
     bbox: BoundingBox;
     masked: boolean;
-    layer: 1 | 2;
+    layer: 0 | 1 | 2 | 3 | 4; // 0=regex, 1=enhanced, 2=NLP, 3=spatial, 4=ML
 }
 
 // ─── Worker Message Types ───────────────────────────────────────────────────
