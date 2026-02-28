@@ -74,6 +74,7 @@ export interface OCRResponse {
     words?: OCRWord[];
     fullText?: string;
     progress?: number;
+    message?: string;
     error?: string;
     pageIndex?: number;
 }

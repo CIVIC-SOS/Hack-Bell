@@ -59,11 +59,12 @@ export function runLayer1Detection(
 /**
  * Merges bounding boxes from a list of OCR words into a single enclosing bbox.
  */
-function mergeWordBBoxes(matchingWords: OCRWord[], pageIndex: number): DetectedEntity['bbox'] {
+function mergeWordBBoxes(matchingWords: OCRWord[]): DetectedEntity['bbox'] {
     const minX = Math.min(...matchingWords.map(w => w.bbox.x));
     const minY = Math.min(...matchingWords.map(w => w.bbox.y));
     const maxX = Math.max(...matchingWords.map(w => w.bbox.x + w.bbox.w));
     const maxY = Math.max(...matchingWords.map(w => w.bbox.y + w.bbox.h));
+    const pageIndex = matchingWords[0]?.bbox.pageIndex ?? 0;
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY, pageIndex };
 }
 
@@ -105,8 +106,7 @@ function mapTextToBBox(
                 }
                 if (allMatch) {
                     const result = mergeWordBBoxes(
-                        words.slice(i, i + cleanedTokens.length),
-                        pageIndex
+                        words.slice(i, i + cleanedTokens.length)
                     );
                     return result;
                 }
@@ -126,7 +126,7 @@ function mapTextToBBox(
                     }
                 }
                 if (matched.length >= Math.ceil(cleanedTokens.length / 2)) {
-                    const result = mergeWordBBoxes(matched, pageIndex);
+                    const result = mergeWordBBoxes(matched);
                     return result;
                 }
             }
@@ -151,7 +151,7 @@ function mapTextToBBox(
     }
 
     if (matchingWords.length > 0) {
-        const result = mergeWordBBoxes(matchingWords, pageIndex);
+        const result = mergeWordBBoxes(matchingWords);
         return result;
     }
 

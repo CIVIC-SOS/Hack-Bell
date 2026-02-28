@@ -227,7 +227,8 @@ self.onmessage = async (e: MessageEvent) => {
 
         // Configure Tesseract with dynamic PSM
         await worker.setParameters({
-            tessedit_pageseg_mode: psm.toString(),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            tessedit_pageseg_mode: psm as any,
         });
 
         const result = await worker.recognize(processedBlob, {}, { text: true, blocks: true });

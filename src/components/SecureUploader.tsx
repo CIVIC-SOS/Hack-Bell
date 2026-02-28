@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import type { SecureUploaderProps, DetectedEntity, ProcessingStage } from '../types';
+import type { SecureUploaderProps, DetectedEntity, ProcessingStage, OCRWord } from '../types';
 import { WorkerPool } from '../workers/WorkerPool';
 import { parseFile, isValidFileType, formatFileSize } from '../processing/fileParser';
 import { processImage, redactImageRegions, canvasToFile } from '../processing/imageProcessor';
-import { redactPDF, pdfBytesToFile } from '../processing/pdfProcessor';
+import { redactPDF, pdfBytesToFile, getPDFPageCount } from '../processing/pdfProcessor';
 import { renderPDFPageToImage } from '../processing/pdfRenderer';
 import { runDetectionPipeline } from '../detection/pipeline';
 import { ProgressIndicator } from './ProgressIndicator';
@@ -34,7 +34,7 @@ export const SecureUploader: React.FC<SecureUploaderProps> = ({
 
     const workerPoolRef = useRef<WorkerPool | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const pdfDimRef = useRef<{ width: number; height: number }>({ width: 612, height: 792 });
+    const pdfDimsRef = useRef<Record<number, { width: number; height: number }>>({});
 
     // Clean up workers on unmount
     useEffect(() => {
@@ -80,24 +80,36 @@ export const SecureUploader: React.FC<SecureUploaderProps> = ({
             const pool = getWorkerPool();
 
             let imageDataUrl: string | null = null;
-
-            let ocrBuffer = parsed.buffer;
-            let ocrMimeType = parsed.mimeType;
+            let words: OCRWord[] = [];
+            let fullText = '';
 
             if (parsed.type === 'image') {
                 const { canvas } = await processImage(parsed.buffer, parsed.mimeType);
                 imageDataUrl = canvas.toDataURL();
+                const ocrResult = await pool.runOCR(parsed.buffer, parsed.mimeType, 0);
+                words = ocrResult.words;
+                fullText = ocrResult.fullText;
             } else {
-                // Render PDF page to a PNG image — Tesseract cannot read PDFs directly
-                setMessage('Rendering PDF page for OCR...');
-                const { imageBuffer, width, height, canvas } = await renderPDFPageToImage(parsed.buffer, 0);
-                ocrBuffer = imageBuffer;
-                ocrMimeType = 'image/png';
-                imageDataUrl = canvas.toDataURL();
-                pdfDimRef.current = { width, height };
-            }
+                // Multi-page PDF: render each page and run OCR
+                const pageCount = await getPDFPageCount(parsed.buffer);
+                setMessage(`Rendering ${pageCount} PDF page${pageCount > 1 ? 's' : ''} for OCR...`);
+                pdfDimsRef.current = {};
+                const pageTexts: string[] = [];
 
-            const { words, fullText } = await pool.runOCR(ocrBuffer, ocrMimeType, 0);
+                for (let pageIdx = 0; pageIdx < pageCount; pageIdx++) {
+                    if (pageCount > 1) setMessage(`Processing page ${pageIdx + 1} of ${pageCount}...`);
+                    const { imageBuffer, width, height, canvas: pageCanvas } =
+                        await renderPDFPageToImage(parsed.buffer, pageIdx);
+                    pdfDimsRef.current[pageIdx] = { width, height };
+                    // Use the first page canvas as the preview image shown in the review modal
+                    if (pageIdx === 0) imageDataUrl = pageCanvas.toDataURL();
+
+                    const pageResult = await pool.runOCR(imageBuffer, 'image/png', pageIdx);
+                    words.push(...pageResult.words);
+                    if (pageResult.fullText.trim()) pageTexts.push(pageResult.fullText);
+                }
+                fullText = pageTexts.join('\n');
+            }
 
             if (words.length === 0 && fullText.trim().length === 0) {
                 setStage('review');
@@ -154,14 +166,11 @@ export const SecureUploader: React.FC<SecureUploaderProps> = ({
                     parsed.mimeType
                 );
             } else {
-                // PDF redaction — use the dimensions from the pre-rendered OCR image
-                const imageWidth = pdfDimRef.current.width;
-                const imageHeight = pdfDimRef.current.height;
+                // PDF redaction — use the per-page dimensions from the pre-rendered OCR images
                 const redactedBytes = await redactPDF(
                     parsed.buffer,
                     confirmedEntities,
-                    imageWidth,
-                    imageHeight
+                    pdfDimsRef.current
                 );
                 redactedFile = pdfBytesToFile(redactedBytes, `redacted_${currentFile.name}`);
                 // Render first page of redacted PDF for preview
