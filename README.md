@@ -8,8 +8,8 @@
 ## Features
 
 - 🔒 **100% Client-Side** — Documents never leave the browser
-- 🤖 **AI-Powered** — Gemini 2.0 Flash for semantic PII detection with pixel-perfect accuracy
-- 📝 **Multi-Layer Detection** — Regex + NLP + Spatial Analysis + Gemini AI
+- 🤖 **AI-Powered** — Tensorflow for semantic PII detection with pixel-perfect accuracy
+- 📝 **Multi-Layer Detection** — Regex + NLP + Spatial Analysis + tensorflow AI
 - 📄 **PDF & Image Support** — PNG, JPEG, WebP, BMP, and PDF documents
 - 🎯 **Pixel-Perfect Redaction** — Word-ID based mapping for exact bounding boxes
 - 👁️ **Review UI** — Interactive modal to review and toggle detections before redacting
@@ -31,7 +31,7 @@ import 'secure-redact/style.css';
 function App() {
   return (
     <SecureRedact
-      apiKey="your-gemini-api-key"
+      apiKey="your-tensorflow-api-key"
       requiredFields={['NAME', 'DOB']}
       onComplete={(maskedFile, evidence) => {
         // maskedFile: File — the redacted document ready to download/upload
@@ -49,7 +49,7 @@ function App() {
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `apiKey` | `string` | *required* | Gemini API key ([get one here](https://aistudio.google.com/apikey)) |
+| `apiKey` | `string` | *required* | Tensorflow Model  |
 | `requiredFields` | `string[]` | `[]` | PII types to KEEP visible (everything else is redacted) |
 | `onComplete` | `(file: File, evidence: EvidenceLog) => void` | *required* | Called when redaction is complete |
 | `confidenceThreshold` | `number` | `0.5` | Minimum confidence (0-1) for PII detection |
@@ -106,7 +106,7 @@ Use these values in the `requiredFields` array:
 
 ```tsx
 <SecureRedact
-  apiKey="your-key"
+  apiKey="Ten"
   showDocTypeSelector={true}
   onComplete={(file) => uploadToServer(file)}
 />
@@ -140,7 +140,7 @@ Multi-Layer PII Detection:
   ├── Layer 0: Regex + Checksums (Aadhaar, PAN, CC, Phone)
   ├── Layer 1: NLP Heuristics (Names, Addresses, Medical)
   ├── Layer 2: Spatial Key-Value Mapping ("Name:" → "John Doe")
-  └── Layer 4: Gemini AI Word-ID Detection (pixel-perfect)
+  └── Layer 4: tensorflow AI Word-ID Detection (pixel-perfect)
     ↓
 Interactive Review Modal
     ↓
@@ -170,7 +170,7 @@ interface EvidenceLog {
 ## Requirements
 
 - **React** ≥ 18.0.0
-- **Gemini API Key** — [Get one free](https://aistudio.google.com/apikey)
+- **tensorflow Models** 
 - **Vite** (recommended) — Workers use `new URL(..., import.meta.url)` syntax
 
 ## License
