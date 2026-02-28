@@ -9,6 +9,7 @@
 
 import type { DetectedEntity, OCRWord } from '../types';
 import { getGeminiForbiddenList } from './gemini';
+import { runWordIdPipeline } from './geminiWordId';
 import { buildSpatialMap, calculateRedactionZones, zonesToEntities } from './matchingEngine';
 import { WorkerPool } from '../workers/WorkerPool';
 
@@ -34,14 +35,18 @@ export interface EnhancedPipelineConfig {
  *   - NLP heuristics for names/addresses (60-90% confidence)
  *   - Fusion Engine merges with deduplication
  * 
- * Stage 2: Gemini Semantic Filter (optional, API-based)
- *   - Catches edge cases missed by local detection
- *   - Uses spatial matching to find bounding boxes
+ * Stage 2: Gemini Word-ID Detection (PRIMARY, API-based)
+ *   - Sends OCR tokens with IDs to Gemini
+ *   - Returns exact word IDs for pixel-perfect bounding boxes
+ *   - Highest accuracy: no fuzzy matching needed
  * 
- * Stage 3: Final Processing
- *   - Merge Gemini results with worker results
+ * Stage 3: Gemini Semantic Filter (FALLBACK, API-based)
+ *   - Catches edge cases if word-ID detection fails
+ *   - Uses forbidden-list + spatial matching approach
+ * 
+ * Stage 4: Final Processing
+ *   - Merge all results with deduplication
  *   - Apply required fields masking
- *   - Final deduplication
  */
 export async function runEnhancedDetectionPipeline(
     config: EnhancedPipelineConfig
@@ -93,45 +98,68 @@ export async function runEnhancedDetectionPipeline(
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // STAGE 2: Gemini Semantic Filter (Optional Enhancement)
+    // STAGE 2: Gemini Word-ID Detection (PRIMARY — pixel-perfect)
     // ────────────────────────────────────────────────────────────────────────
 
     let geminiEntities: DetectedEntity[] = [];
 
     if (enableGemini && geminiApiKey) {
+        // Try word-ID detection first (highest accuracy)
         try {
-            onProgress?.('Analyzing with Gemini AI...');
-
-            // Build spatial map for matching
-            const spatialMap = buildSpatialMap(words, pageIndex);
-
-            // Get forbidden list from Gemini
-            const forbiddenList = await getGeminiForbiddenList(
-                fullText,
-                requiredFields,
+            onProgress?.('Running Gemini word-ID detection...');
+            const wordIdEntities = await runWordIdPipeline(
+                words,
                 geminiApiKey,
+                pageIndex,
                 onProgress
             );
 
-            if (forbiddenList.length > 0 && spatialMap.length > 0) {
-                onProgress?.('Calculating redaction zones...');
-                const redactionZones = calculateRedactionZones(
-                    spatialMap,
-                    forbiddenList,
-                    requiredFields
-                );
-                geminiEntities = zonesToEntities(redactionZones);
-                console.log(`[Enhanced Pipeline] Gemini detected ${geminiEntities.length} additional entities`);
+            if (wordIdEntities.length > 0) {
+                geminiEntities = wordIdEntities;
+                console.log(`[Enhanced Pipeline] Word-ID detection: ${geminiEntities.length} entities (pixel-perfect)`);
             }
-
         } catch (err) {
-            console.warn('[Enhanced Pipeline] Gemini enhancement failed:', err);
-            // Continue without Gemini - local detection is still valuable
+            console.warn('[Enhanced Pipeline] Word-ID detection failed:', err);
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // STAGE 3: Gemini Semantic Filter (FALLBACK — if word-ID found nothing)
+        // ────────────────────────────────────────────────────────────────────
+
+        if (geminiEntities.length === 0) {
+            try {
+                onProgress?.('Trying semantic filter fallback...');
+
+                // Build spatial map for matching
+                const spatialMap = buildSpatialMap(words, pageIndex);
+
+                // Get forbidden list from Gemini
+                const forbiddenList = await getGeminiForbiddenList(
+                    fullText,
+                    requiredFields,
+                    geminiApiKey,
+                    onProgress
+                );
+
+                if (forbiddenList.length > 0 && spatialMap.length > 0) {
+                    onProgress?.('Calculating redaction zones...');
+                    const redactionZones = calculateRedactionZones(
+                        spatialMap,
+                        forbiddenList,
+                        requiredFields
+                    );
+                    geminiEntities = zonesToEntities(redactionZones);
+                    console.log(`[Enhanced Pipeline] Semantic filter fallback: ${geminiEntities.length} entities`);
+                }
+            } catch (err) {
+                console.warn('[Enhanced Pipeline] Semantic filter fallback failed:', err);
+                // Continue without Gemini - local detection is still valuable
+            }
         }
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // STAGE 3: Merge & Final Deduplication
+    // STAGE 4: Merge & Final Deduplication
     // ────────────────────────────────────────────────────────────────────────
 
     onProgress?.('Finalizing detections...');

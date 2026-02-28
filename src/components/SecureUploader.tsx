@@ -11,7 +11,6 @@ import { ReviewModal } from './ReviewModal';
 
 const DEFAULT_MAX_SIZE_MB = 25;
 const DEFAULT_CONFIDENCE = 0.5;
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY ?? '';
 
 export const SecureUploader: React.FC<SecureUploaderProps> = ({
     requiredFields = [],
@@ -19,7 +18,10 @@ export const SecureUploader: React.FC<SecureUploaderProps> = ({
     onUpload,
     maxFileSizeMB = DEFAULT_MAX_SIZE_MB,
     acceptedTypes,
+    apiKey,
 }) => {
+    // Resolve Gemini API key: prop > env var
+    const resolvedApiKey = apiKey ?? (typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_GEMINI_API_KEY ?? '' : '');
     const [stage, setStage] = useState<ProcessingStage>('idle');
     const [progress, setProgress] = useState(0);
     const [message, setMessage] = useState('');
@@ -114,7 +116,7 @@ export const SecureUploader: React.FC<SecureUploaderProps> = ({
             const detected = await runDetectionPipeline(
                 fullText,
                 words,
-                GEMINI_API_KEY,
+                resolvedApiKey,
                 confidenceThreshold,
                 requiredFields,
                 0,

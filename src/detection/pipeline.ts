@@ -1,6 +1,7 @@
 import type { DetectedEntity, OCRWord, NLPResponse } from '../types';
 import { runLayer1Detection } from './layer1';
 import { getGeminiForbiddenList, runGeminiDetection } from './gemini';
+import { runWordIdPipeline } from './geminiWordId';
 import { buildSpatialMap, calculateRedactionZones, zonesToEntities } from './matchingEngine';
 
 /**
@@ -10,10 +11,11 @@ import { buildSpatialMap, calculateRedactionZones, zonesToEntities } from './mat
  * 1. Build spatial map from OCR words (coordinate-aware)
  * 2. Run Layer 1: deterministic regex + checksums (Aadhaar, PAN, CC, Phone)
  * 3. Run NLP Worker: local heuristic detection (names, addresses, medical, DOB, email)
- * 4. Run Gemini Semantic Filter (with retry): get "forbidden list"
- * 5. Run Matching Engine: link forbidden phrases to Tesseract word coordinates
- * 6. Merge all layers → Deduplicate → Filter by confidence
- * 7. Mark requiredFields as unmasked
+ * 4. Run Gemini Word-ID Detection (PRIMARY): exact word-ID mapping for pixel-perfect bboxes
+ *    ↳ Fallback A: Gemini Semantic Filter (forbidden list + matching engine)
+ *    ↳ Fallback B: Legacy Gemini entity-based detection
+ * 5. Merge all layers → Deduplicate → Filter by confidence
+ * 6. Mark requiredFields as unmasked
  */
 export async function runDetectionPipeline(
     fullText: string,
@@ -44,46 +46,64 @@ export async function runDetectionPipeline(
         console.warn('[Pipeline] NLP worker failed:', err);
     }
 
-    // Step 4 & 5: Gemini Semantic Filter + Matching Engine (with retry)
-    let matchingEngineEntities: DetectedEntity[] = [];
+    // Step 4: Gemini AI Detection (multi-strategy with fallbacks)
+    let geminiEntities: DetectedEntity[] = [];
 
     if (geminiApiKey) {
+        // PRIMARY: Word-ID based detection (pixel-perfect, highest accuracy)
         try {
-            onProgress?.('Analyzing with Gemini AI...');
-
-            // Get forbidden list from Gemini (with retry for rate limits)
-            const forbiddenList = await withRetry(
-                () => getGeminiForbiddenList(fullText, requiredFields, geminiApiKey, onProgress),
-                2,       // max retries (reduced from 3)
-                5000     // initial delay (5s, faster retry for better UX)
+            onProgress?.('Running Gemini word-ID detection...');
+            const wordIdEntities = await withRetry(
+                () => runWordIdPipeline(words, geminiApiKey, pageIndex, onProgress),
+                2,
+                5000
             );
 
-            if (forbiddenList.length > 0 && spatialMap.length > 0) {
-                onProgress?.('Calculating redaction zones...');
-                const redactionZones = calculateRedactionZones(spatialMap, forbiddenList, requiredFields);
-                matchingEngineEntities = zonesToEntities(redactionZones);
-                console.log('[Pipeline] Matching engine zones:', matchingEngineEntities.length);
+            if (wordIdEntities.length > 0) {
+                geminiEntities = wordIdEntities;
+                console.log(`[Pipeline] Word-ID detection: ${geminiEntities.length} entities (pixel-perfect)`);
             }
         } catch (err) {
-            console.warn('[Pipeline] Gemini semantic filter failed after retries:', err);
+            console.warn('[Pipeline] Gemini word-ID detection failed:', err);
+        }
 
-            // Fallback: try legacy entity-based Gemini detection
+        // FALLBACK A: Forbidden list + matching engine (if word-ID found nothing)
+        if (geminiEntities.length === 0) {
             try {
-                const legacyEntities = await withRetry(
-                    () => runGeminiDetection(fullText, words, geminiApiKey, pageIndex, onProgress),
-                    1,
+                onProgress?.('Trying semantic filter fallback...');
+                const forbiddenList = await withRetry(
+                    () => getGeminiForbiddenList(fullText, requiredFields, geminiApiKey, onProgress),
+                    2,
                     5000
                 );
-                matchingEngineEntities = legacyEntities;
-                console.log('[Pipeline] Legacy Gemini entities:', matchingEngineEntities.length);
-            } catch (err2) {
-                console.warn('[Pipeline] All Gemini calls failed. Using Layer 1 + NLP only.');
+
+                if (forbiddenList.length > 0 && spatialMap.length > 0) {
+                    onProgress?.('Calculating redaction zones...');
+                    const redactionZones = calculateRedactionZones(spatialMap, forbiddenList, requiredFields);
+                    geminiEntities = zonesToEntities(redactionZones);
+                    console.log('[Pipeline] Semantic filter fallback:', geminiEntities.length, 'entities');
+                }
+            } catch (err) {
+                console.warn('[Pipeline] Semantic filter fallback failed:', err);
+
+                // FALLBACK B: Legacy entity-based Gemini detection
+                try {
+                    const legacyEntities = await withRetry(
+                        () => runGeminiDetection(fullText, words, geminiApiKey, pageIndex, onProgress),
+                        1,
+                        5000
+                    );
+                    geminiEntities = legacyEntities;
+                    console.log('[Pipeline] Legacy Gemini fallback:', geminiEntities.length, 'entities');
+                } catch (err2) {
+                    console.warn('[Pipeline] All Gemini strategies failed. Using Layer 1 + NLP only.');
+                }
             }
         }
     }
 
-    // Step 6: Merge all results
-    const allEntities = [...layer1Entities, ...nlpEntities, ...matchingEngineEntities];
+    // Step 5: Merge all results
+    const allEntities = [...layer1Entities, ...nlpEntities, ...geminiEntities];
 
     // Deduplicate overlapping detections
     const deduped = deduplicateEntities(allEntities);
@@ -91,7 +111,7 @@ export async function runDetectionPipeline(
     // Filter by confidence
     const filtered = deduped.filter(e => e.confidence >= confidenceThreshold);
 
-    // Step 7: Mark required fields as unmasked
+    // Step 6: Mark required fields as unmasked
     for (const entity of filtered) {
         if (requiredFields.includes(entity.type)) {
             entity.masked = false;

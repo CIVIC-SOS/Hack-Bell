@@ -1,0 +1,21 @@
+# Source files (dist is the published output)
+src/
+public/
+
+# Build configs
+vite.config.ts
+vite.config.lib.ts
+tsconfig.json
+tsconfig.app.json
+tsconfig.node.json
+eslint.config.js
+ARCHITECTURE.md
+
+# Dev files
+node_modules/
+.git/
+.gitignore
+*.tsbuildinfo
+
+# Demo app files
+index.html

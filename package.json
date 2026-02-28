@@ -1,19 +1,60 @@
 {
-  "name": "hackbell",
-  "private": true,
-  "version": "0.0.0",
+  "name": "secure-redact",
+  "version": "1.0.0",
+  "description": "Client-side PII detection and redaction React component. Upload documents, automatically detect sensitive information using OCR + AI, review detections, and download redacted copies — all without sending originals to any server.",
+  "private": false,
   "type": "module",
+  "main": "./dist/secure-redact.umd.js",
+  "module": "./dist/secure-redact.es.js",
+  "types": "./dist/lib.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/secure-redact.es.js",
+      "require": "./dist/secure-redact.umd.js",
+      "types": "./dist/lib.d.ts"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:lib": "vite build --config vite.config.lib.ts",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prepublishOnly": "npm run build:lib"
+  },
+  "keywords": [
+    "pii",
+    "redaction",
+    "privacy",
+    "ocr",
+    "tesseract",
+    "gemini",
+    "document-processing",
+    "sensitive-data",
+    "aadhaar",
+    "pan",
+    "react",
+    "react-component"
+  ],
+  "author": "johhhnnnnyyyyy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/johhhnnnnyyyyy/Hack-Bell.git"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.624",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
@@ -27,9 +68,12 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "tailwindcss": "^4.2.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vite-plugin-dts": "^4.5.4"
   }
 }

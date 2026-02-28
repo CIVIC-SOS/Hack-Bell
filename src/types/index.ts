@@ -99,6 +99,7 @@ export interface SecureUploaderProps {
     onUpload: (maskedFile: File, evidenceBlob: string) => void;
     maxFileSizeMB?: number;
     acceptedTypes?: string[];
+    apiKey?: string;
 }
 
 // ─── Processing State ───────────────────────────────────────────────────────
