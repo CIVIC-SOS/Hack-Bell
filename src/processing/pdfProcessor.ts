@@ -36,8 +36,7 @@ export async function renderPDFPageToCanvas(
 export async function redactPDF(
     pdfBytes: ArrayBuffer,
     entities: DetectedEntity[],
-    imageWidth: number,
-    imageHeight: number
+    pageDimensions: Record<number, { width: number; height: number }>
 ): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const pages = pdfDoc.getPages();
@@ -48,12 +47,15 @@ export async function redactPDF(
         const pageIdx = entity.bbox.pageIndex;
         if (pageIdx >= pages.length) continue;
 
+        const dims = pageDimensions[pageIdx];
+        if (!dims) continue;
+
         const page = pages[pageIdx];
         const { width: pageWidth, height: pageHeight } = page.getSize();
 
         // Convert OCR coordinates (top-left origin) to PDF coordinates (bottom-left origin)
-        const scaleX = pageWidth / imageWidth;
-        const scaleY = pageHeight / imageHeight;
+        const scaleX = pageWidth / dims.width;
+        const scaleY = pageHeight / dims.height;
 
         const x = (entity.bbox.x - SUB_PIXEL_PADDING) * scaleX;
         const w = (entity.bbox.w + SUB_PIXEL_PADDING * 2) * scaleX;

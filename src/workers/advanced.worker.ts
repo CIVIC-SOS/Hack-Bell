@@ -2,7 +2,7 @@
 // Implements multi-stage detection pipeline with spatial awareness
 // Integrates: Document Router → Spatial Mapper → Fusion Engine
 
-import type { OCRWord, DetectedEntity, PIIType } from '../types';
+import type { OCRWord, DetectedEntity } from '../types';
 import {
     groupWordsIntoLines,
     groupLinesIntoBlocks,

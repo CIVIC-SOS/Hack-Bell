@@ -21,6 +21,10 @@ const TYPE_LABELS: Record<PIIType, string> = {
     MEDICAL: 'Medical Information',
     EMAIL: 'Email Address',
     DOB: 'Date of Birth',
+    ACCOUNT_NUMBER: 'Account Number',
+    IFSC: 'IFSC Code',
+    INVOICE_NO: 'Invoice Number',
+    GST: 'GST Number',
     SENSITIVE: 'Sensitive Info',
 };
 
@@ -34,6 +38,10 @@ const TYPE_COLORS: Record<PIIType, string> = {
     MEDICAL: '#ec4899',
     EMAIL: '#06b6d4',
     DOB: '#14b8a6',
+    ACCOUNT_NUMBER: '#f59e0b',
+    IFSC: '#10b981',
+    INVOICE_NO: '#6366f1',
+    GST: '#84cc16',
     SENSITIVE: '#6b7280',
 };
 
@@ -47,38 +55,13 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
     confidenceThreshold,
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const imgRef = useRef<HTMLImageElement | null>(null);
     const [localEntities, setLocalEntities] = useState<DetectedEntity[]>(entities);
-    const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
     const [scale, setScale] = useState(1);
 
     useEffect(() => {
         setLocalEntities(entities);
     }, [entities]);
-
-    useEffect(() => {
-        if (!imageDataUrl || !canvasRef.current) return;
-
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        const img = new Image();
-        img.onload = () => {
-            const containerWidth = canvas.parentElement?.clientWidth ?? 800;
-            const s = Math.min(1, containerWidth / img.naturalWidth);
-            setScale(s);
-            setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
-
-            canvas.width = img.naturalWidth * s;
-            canvas.height = img.naturalHeight * s;
-
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-            // Draw bounding boxes
-            drawBoundingBoxes(ctx, localEntities, s);
-        };
-        img.src = imageDataUrl;
-    }, [imageDataUrl, localEntities]);
 
     function drawBoundingBoxes(
         ctx: CanvasRenderingContext2D,
@@ -133,6 +116,34 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             ctx.fillText(label, sx + 4 * s, Math.max(labelH - 4 * s, labelY + labelH - 4 * s));
         }
     }
+
+    // Load image and set canvas dimensions (only when imageDataUrl changes)
+    useEffect(() => {
+        if (!imageDataUrl || !canvasRef.current) return;
+
+        const canvas = canvasRef.current;
+        const img = new Image();
+        img.onload = () => {
+            const containerWidth = canvas.parentElement?.clientWidth ?? 800;
+            const s = Math.min(1, containerWidth / img.naturalWidth);
+            canvas.width = img.naturalWidth * s;
+            canvas.height = img.naturalHeight * s;
+            imgRef.current = img;
+            setScale(s);
+        };
+        img.src = imageDataUrl;
+    }, [imageDataUrl]);
+
+    // Redraw bounding boxes in real time when entities or scale changes
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const img = imgRef.current;
+        if (!canvas || !img || canvas.width === 0) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        drawBoundingBoxes(ctx, localEntities, scale);
+    }, [localEntities, scale]);
 
     function toggleEntity(entityId: string) {
         setLocalEntities(prev =>

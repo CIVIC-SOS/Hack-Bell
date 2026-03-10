@@ -27,7 +27,7 @@ export async function renderPDFPageToImage(
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Failed to get canvas context');
 
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
 
     // Convert canvas to PNG blob, then to ArrayBuffer
     const blob = await new Promise<Blob>((resolve, reject) => {

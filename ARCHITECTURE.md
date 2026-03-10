@@ -326,8 +326,8 @@ The architecture includes multiple safeguards:
 
 - [ ] WASM-optimized image preprocessing
 - [ ] TensorFlow.js NER model (lightweight BERT)
-- [ ] Multi-page PDF support
-- [ ] Real-time redaction preview
+- [x] Multi-page PDF support
+- [x] Real-time redaction preview
 - [ ] Export to encrypted ZIP
 
 ---
@@ -368,6 +368,8 @@ src/
 - [x] Memory leak prevention
 - [x] Error handling & fallbacks
 - [x] TypeScript type safety
+- [x] Multi-page PDF support
+- [x] Real-time redaction preview
 
 ---
 
