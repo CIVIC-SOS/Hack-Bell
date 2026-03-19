@@ -36,7 +36,7 @@ export const SecureUploader: React.FC<SecureUploaderProps> = ({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const pdfDimRef = useRef<{ width: number; height: number }>({ width: 612, height: 792 });
 
-    // Clean up workers on unmount
+ //unmounting clean up 
     useEffect(() => {
         return () => {
             workerPoolRef.current?.terminate();
@@ -88,7 +88,7 @@ export const SecureUploader: React.FC<SecureUploaderProps> = ({
                 const { canvas } = await processImage(parsed.buffer, parsed.mimeType);
                 imageDataUrl = canvas.toDataURL();
             } else {
-                // Render PDF page to a PNG image — Tesseract cannot read PDFs directly
+                // pdf - image - ....
                 setMessage('Rendering PDF page for OCR...');
                 const { imageBuffer, width, height, canvas } = await renderPDFPageToImage(parsed.buffer, 0);
                 ocrBuffer = imageBuffer;
